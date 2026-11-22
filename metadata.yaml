@@ -4,3 +4,4 @@ author: W1
 display_name: AstrBot Codex Bridge
 short_desc: Local bidirectional Codex integration.
 desc: Background Codex jobs and result delivery through AstrBot.
+repo: https://github.com/1972124398/astrbot_plugin_codex_bridge

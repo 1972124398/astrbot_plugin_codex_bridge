@@ -38,3 +38,7 @@ ASTRBOT_CODEX_BRIDGE_DATA_DIR = '/absolute/path/to/astrbot/data/plugin_data/astr
 ```
 
 重新打开 Codex 后可以调用 `astrbot_status`。微信配对后，`astrbot_notify` 可向该私聊发送结果。若希望插件启动的后台任务自动批准这个 MCP 服务的工具，可在运行目录的 `config.json` 中把 `notification_mcp_server` 设为上面配置的服务名。
+
+## 许可证
+
+BSD Zero Clause License（[0BSD](LICENSE)）。
