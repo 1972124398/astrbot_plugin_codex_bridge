@@ -1,0 +1,10 @@
+{
+  "codex": "/absolute/path/to/codex",
+  "cwd": "/absolute/path/to/workspace",
+  "sandbox": "workspace-write",
+  "timeout_seconds": 1800,
+  "webchat_owner": "your-webchat-user-id",
+  "wechat_platform_id": "",
+  "wechat_operators": [],
+  "notification_session": ""
+}
