@@ -1,5 +1,7 @@
 # 更新记录
 
+[返回首页](README.md) · [发布版本](https://github.com/1972124398/astrbot_plugin_codex_bridge/releases)
+
 ## 1.2.1
 
 - 补充快速开始、运行目录结构、配置字段与 Windows 示例。

@@ -1,5 +1,7 @@
 # 配置参考
 
+[返回首页](../README.md) · [MCP、工具和本地 API](INTEGRATION.md) · [更新记录](../CHANGELOG.md)
+
 本插件在 AstrBot 数据目录中使用独立的 `data/plugin_data/astrbot_plugin_codex_bridge/config.json`。将仓库根目录的 `config.example.json` 复制到这里，再按运行环境修改。
 
 ## 配置字段

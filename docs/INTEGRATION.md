@@ -1,5 +1,7 @@
 # MCP、工具和本地 API
 
+[返回首页](../README.md) · [配置参考](CONFIGURATION.md) · [更新记录](../CHANGELOG.md)
+
 ## 自然语言工具
 
 授权私聊可以由聊天模型调用以下工具。
