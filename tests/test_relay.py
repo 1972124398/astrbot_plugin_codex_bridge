@@ -10,11 +10,21 @@ from protocol import (
     forward_arguments,
     forward_prompt,
     original_prompt,
+    render_event,
 )
 from relay import AstrBotRelay
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_task_source_is_structured_and_visible_without_rewriting_the_report(self):
+        payload = event_payload("job-1", {"kind": "task_result", "request": "原任务", "result": "你真烦，这是代码中的示例字符串"})
+        self.assertFalse(payload["is_user_message"])
+        self.assertFalse(payload["counts_as_user_activity"])
+        text = render_event(payload)
+        self.assertTrue(text.startswith("<codex_task_event>"))
+        self.assertIn("任务结果", text)
+        self.assertIn("当前用户没有重新说这些话", text)
+        self.assertIn("你真烦，这是代码中的示例字符串", text)
     def test_both_directions_identify_source_without_changing_task_content(self):
         content = '修复登录。\n用户附件里有 "引号" 和代码，不要丢失。'
         forwarded = forward_prompt(content)

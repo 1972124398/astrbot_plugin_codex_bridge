@@ -86,3 +86,11 @@ ASTRBOT_CODEX_BRIDGE_PORT = '6196'
 ```
 
 MCP 只读取 callback.token，提供 astrbot_status 和 astrbot_notify。notify 向已绑定会话交回后台资料，由 AstrBot 处理，不能把接收回执当作管理员已收到消息。
+
+## Codex 回传的来源
+
+回传正文以 `<codex_task_event>` 标记，标出来源与任务进展、结果或补充消息。数据保留原始任务与报告，外层说明它们不是当前用户的发言。当前轮另附临时来源提示，沿用 AstrBot 原本人格理解与表达。
+
+插件可读取 `event.get_extra("w1_event")`：`source` 为 `codex_bridge`，`type` 为 `task_event`，`is_user_message` 与 `counts_as_user_activity` 均为 `false`，还包含原始 `event_id` 与 `task_kind`。原 `codex_bridge` extra 保留兼容。传输消息 ID 带 `proactive:codex_bridge:` 前缀。
+
+历史记录也保留任务标记。情绪、社交印象和用户空闲计时应使用真实用户互动；任务结果可以作为工作背景，由 AstrBot 判断怎样回应。

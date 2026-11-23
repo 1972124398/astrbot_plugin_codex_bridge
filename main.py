@@ -18,7 +18,7 @@ from .desktop import DesktopClient, DesktopError
 from .control import ChatControl, status_text
 from .reports import GlobalMonitor, ReportStore
 from .relay import AstrBotRelay
-from .protocol import bridge_result, original_prompt, forward_prompt
+from .protocol import TASK_FRAME, bridge_result, original_prompt, forward_prompt
 from .settings import load_settings, save_routing
 from .interop import CompanionLink, event_kind
 
@@ -759,6 +759,8 @@ class CodexBridge(Star):
 
     @filter.on_llm_request()
     async def scope_tools(self, event, request):
+        if self.relay and self.relay.owns(event) and TASK_FRAME not in (request.system_prompt or ""):
+            request.system_prompt = (request.system_prompt or "") + "\n\n" + TASK_FRAME
         self.link.begin(event)
         self.link.inject(event, request)
         if request.func_tool:

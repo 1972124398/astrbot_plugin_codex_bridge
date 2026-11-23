@@ -1,11 +1,9 @@
 """Hand task events to AstrBot's normal event pipeline, without generating speech."""
 
-import json
-
 try:
-    from .protocol import event_payload
+    from .protocol import event_payload, render_event
 except ImportError:
-    from protocol import event_payload
+    from protocol import event_payload, render_event
 
 
 def make_event(context, session, payload):
@@ -15,20 +13,22 @@ def make_event(context, session, payload):
     from astrbot.core.platform.message_session import MessageSession
 
     target = MessageSession.from_str(session)
-    text = "【Codex 桥接后台事件｜非用户消息】\n" + json.dumps(
-        payload, ensure_ascii=False
-    )
+    text = render_event(payload)
     event = CronMessageEvent(
         context=context,
         session=target,
         message=text,
         sender_name="Codex Bridge",
-        extras={"codex_bridge": payload},
+        extras={"codex_bridge": payload, "w1_event": {
+            "version": 1, "source": "codex_bridge", "type": "task_event",
+            "is_user_message": False, "counts_as_user_activity": False,
+            "event_id": payload["event_id"], "task_kind": payload["kind"],
+        }},
         message_type=target.message_type,
     )
     event.message_obj.sender.user_id = "codex_bridge"
     event.message_obj.raw_message = payload
-    event.message_obj.message_id = payload["event_id"]
+    event.message_obj.message_id = "proactive:codex_bridge:" + payload["event_id"]
     event.platform_meta.name = "codex_bridge"
     event.platform_meta.description = "Codex task event"
     event.event_kind = "codex_bridge"
