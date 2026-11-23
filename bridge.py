@@ -104,7 +104,7 @@ class CodexClient:
         )
         try:
             await asyncio.wait_for(self.request("initialize", {
-                "clientInfo": {"name": "astrbot-codex-bridge", "version": "1.2.0"},
+                "clientInfo": {"name": "astrbot-codex-bridge", "version": "1.2.1"},
             }), 15)
             await self.send({"method": "initialized"})
         except BaseException:

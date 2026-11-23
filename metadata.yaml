@@ -1,7 +1,7 @@
 name: astrbot_plugin_codex_bridge
-version: 1.2.0
+version: 1.2.1
 author: W1
 display_name: AstrBot Codex Bridge
-short_desc: Local bidirectional Codex integration.
-desc: Background Codex jobs and result delivery through AstrBot.
+short_desc: 在私聊中提交本机 Codex 后台任务并接收结果。
+desc: 支持 WebChat 与微信私聊的 Codex 任务桥接、排队执行、延时任务、会话续接和结果回传。
 repo: https://github.com/1972124398/astrbot_plugin_codex_bridge
