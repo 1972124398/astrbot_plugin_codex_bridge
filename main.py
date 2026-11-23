@@ -20,7 +20,7 @@ from .reports import GlobalMonitor, ReportStore
 from .relay import AstrBotRelay
 from .protocol import TASK_FRAME, bridge_result, original_prompt, forward_prompt
 from .settings import load_settings, save_routing
-from .interop import CompanionLink, event_kind
+from .interop import CompanionLink, event_kind, notice_ignored
 
 TOOL_NAMES = (
     "w1_delegate_to_codex",
@@ -790,7 +790,7 @@ class CodexBridge(Star):
     @filter.on_agent_done()
     async def companion_done(self, event: AstrMessageEvent, run_context, response):
         self.link.end(event)
-        if event_kind(event) == "task_event" and getattr(response, "completion_text", ""):
+        if event_kind(event) == "task_event" and not notice_ignored(event) and getattr(response, "completion_text", ""):
             self.link.sent(event.unified_msg_origin, "", kind="task_spoken")
 
     @filter.llm_tool(name="w1_codex_app")
