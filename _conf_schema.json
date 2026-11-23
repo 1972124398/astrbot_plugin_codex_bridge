@@ -1,0 +1,168 @@
+{
+  "backend": {
+    "description": "执行后端",
+    "type": "string",
+    "default": "desktop",
+    "hint": "desktop 直接控制已打开的 Codex App；app_server 为独立后台任务。",
+    "options": [
+      "desktop",
+      "app_server"
+    ],
+    "invisible": true
+  },
+  "codex": {
+    "description": "Codex 可执行文件",
+    "type": "string",
+    "default": "codex",
+    "hint": "仅 app_server 使用。Windows 填 codex.exe 绝对路径。",
+    "invisible": true
+  },
+  "cwd": {
+    "description": "后台默认工作目录",
+    "type": "string",
+    "default": "",
+    "hint": "仅 app_server 使用，填写已存在的绝对目录；桌面模式忽略此默认值。",
+    "invisible": true
+  },
+  "sandbox": {
+    "description": "后台任务权限",
+    "type": "string",
+    "default": "danger-full-access",
+    "hint": "仅 app_server 使用；danger-full-access 允许控制整台主机。桌面任务继承 App 自身权限。",
+    "options": [
+      "danger-full-access",
+      "workspace-write",
+      "read-only"
+    ],
+    "invisible": true
+  },
+  "timeout_seconds": {
+    "description": "后台超时/桌面轮次匹配时限",
+    "type": "int",
+    "default": 1800,
+    "hint": "通常无需修改，留用默认设置即可。",
+    "invisible": true
+  },
+  "webchat_owner": {
+    "description": "WebChat 操作者 ID",
+    "type": "string",
+    "default": "",
+    "hint": "管理员默认获准；可额外填写一个可信 WebChat 用户 ID。",
+    "invisible": true
+  },
+  "wechat_platform_id": {
+    "description": "配对平台实例 ID",
+    "type": "string",
+    "default": "",
+    "hint": "填写用于一次性配对的实际平台实例 ID；管理员私聊无需配对。",
+    "invisible": true
+  },
+  "wechat_operators": {
+    "description": "已授权微信用户 ID",
+    "type": "list",
+    "default": [],
+    "hint": "与平台实例 ID 一起校验；也可通过配对生成。",
+    "invisible": true
+  },
+  "notification_session": {
+    "description": "全局汇报会话",
+    "type": "string",
+    "default": "",
+    "hint": "可留空，在管理员私聊发送 /codex_bind 自动绑定。",
+    "invisible": true
+  },
+  "notification_mcp_server": {
+    "description": "可选 MCP 回传服务名",
+    "type": "string",
+    "default": "",
+    "hint": "仅独立后台模式使用，与 Codex MCP 配置的服务名一致。",
+    "invisible": true
+  },
+  "desktop_pipe": {
+    "description": "桌面原生通道",
+    "type": "string",
+    "default": "",
+    "hint": "通常留空自动发现；存在多个实例时填写完整管道或 socket 路径。",
+    "invisible": true
+  },
+  "controller_thread_id": {
+    "description": "桌面调用身份聊天 ID",
+    "type": "string",
+    "default": "",
+    "hint": "通常留空，从本地只读元数据自动发现真实聊天。可指定专用的现有本地聊天。",
+    "invisible": true
+  },
+  "codex_home": {
+    "description": "Codex 数据目录",
+    "type": "string",
+    "default": "",
+    "hint": "通常留空，默认 CODEX_HOME 或 ~/.codex，用于只读发现调用身份。",
+    "invisible": true
+  },
+  "desktop_url": {
+    "description": "宿主机代理地址",
+    "type": "string",
+    "default": "",
+    "hint": "AstrBot 与 Codex 同机时留空；容器或异机部署时填写宿主机代理地址。",
+    "invisible": false
+  },
+  "desktop_token": {
+    "description": "宿主机代理令牌",
+    "type": "string",
+    "default": "",
+    "hint": "同机使用留空；使用宿主机代理时填写其令牌。",
+    "invisible": false
+  },
+  "desktop_timeout_seconds": {
+    "description": "单次桌面调用超时（秒）",
+    "type": "int",
+    "default": 45,
+    "hint": "通常无需修改，留用默认设置即可。",
+    "invisible": true
+  },
+  "monitor_enabled": {
+    "description": "转交 Codex 全局任务状态",
+    "type": "bool",
+    "default": true,
+    "hint": "记录全局任务进度并作为后台事件交给 AstrBot，由 AstrBot 处理。",
+    "invisible": false
+  },
+  "monitor_interval_seconds": {
+    "description": "全局扫描间隔（秒）",
+    "type": "int",
+    "default": 15,
+    "hint": "通常无需修改，留用默认设置即可。",
+    "invisible": true
+  },
+  "progress_interval_seconds": {
+    "description": "进度合并间隔（秒）",
+    "type": "int",
+    "default": 60,
+    "hint": "通常无需修改，留用默认设置即可。",
+    "invisible": true
+  },
+  "bridge_port": {
+    "description": "本地 API 端口",
+    "type": "int",
+    "default": 6196,
+    "hint": "默认 6196，仅监听 127.0.0.1。",
+    "invisible": true
+  },
+  "interop_enabled": {
+    "description": "与其他拟人插件自然联动",
+    "type": "bool",
+    "default": true,
+    "hint": "自动发现 Codex Bridge、陪它玩、自娱自乐和短期共享情绪。共享心境、当前会话的相处与活动背景；未安装的能力自动略过，单独安装也能使用。"
+  },
+  "interop_gap_minutes": {
+    "description": "联动时两次主动开口至少隔几分钟",
+    "type": "int",
+    "default": 10,
+    "slider": {
+      "min": 0,
+      "max": 240,
+      "step": 1
+    },
+    "hint": "自娱自乐、主动邀玩和任务事件回复共用最近开口时间。只协调主动行为，手动聊天和游戏操作随时可继续。0 不额外等待。"
+  }
+}

@@ -1,7 +1,8 @@
 name: astrbot_plugin_codex_bridge
-version: 1.2.1
+version: 2.4.0
 author: W1
 display_name: AstrBot Codex Bridge
-short_desc: 在私聊中提交本机 Codex 后台任务并接收结果。
-desc: 支持 WebChat 与微信私聊的 Codex 任务桥接、排队执行、延时任务、会话续接和结果回传。
+short_desc: 连接 AstrBot 与 Codex，转交任务、状态和结果。
+desc: AstrBot 决定任务与发言，插件负责双向来源说明、Codex 操作入口、全局状态记录和后台事件转交。
+astrbot_version: '>=4.29.4'
 repo: https://github.com/1972124398/astrbot_plugin_codex_bridge

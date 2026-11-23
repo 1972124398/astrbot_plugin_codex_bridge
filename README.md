@@ -1,138 +1,81 @@
-<div align="center">
+# AstrBot Codex Bridge
 
-<h1>AstrBot Codex 任务桥接</h1>
-<p>在私聊中提交 Codex 任务，让执行结果回到原会话。</p>
+把 AstrBot 和本机 Codex 连起来。AstrBot 决定什么时候调用 Codex、交办什么任务，以及怎样和用户说话；插件负责转交消息、操作 Codex、记录状态，再把结果送回 AstrBot。
 
-<p>
-  <a href="https://github.com/1972124398/astrbot_plugin_codex_bridge/releases/latest"><img src="https://img.shields.io/github/v/release/1972124398/astrbot_plugin_codex_bridge?style=flat-square&color=2563eb" alt="最新版本"></a>
-  <a href="https://github.com/1972124398/astrbot_plugin_codex_bridge/actions/workflows/check.yml"><img src="https://github.com/1972124398/astrbot_plugin_codex_bridge/actions/workflows/check.yml/badge.svg?branch=main" alt="检查状态"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-0BSD-64748b?style=flat-square" alt="0BSD 许可证"></a>
-</p>
+[安装与部署](docs/DEPLOYMENT.md) · [配置说明](docs/CONFIGURATION.md) · [工具与 API](docs/INTEGRATION.md) · [更新记录](CHANGELOG.md)
 
-<p>
-  <a href="https://github.com/1972124398/astrbot_plugin_codex_bridge/releases/latest/download/astrbot_plugin_codex_bridge.zip"><strong>下载 ZIP</strong></a> ·
-  <a href="#快速开始">快速开始</a> ·
-  <a href="docs/CONFIGURATION.md">配置文档</a> ·
-  <a href="https://github.com/1972124398/astrbot_plugin_codex_bridge/issues/new/choose">问题反馈</a>
-</p>
+## 两边怎样交接
 
-</div>
+**AstrBot → Codex**：任务附带来源说明，表明这是 AstrBot 代表用户转交的原话或整理后的任务。正文单独保留，Codex 负责执行，把进度、结果和需要确认的事项交回 AstrBot。
 
-## 功能
+**Codex → AstrBot**：进度和结果附带来源、事件类型和交接提示，说明这是后台任务资料，应该结合当前对话、按原有人格正常理解和表达。AstrBot 决定是否回复、说什么，以及是否继续调用 Codex。
 
-| 能力 | 使用方式 |
-| --- | --- |
-| 后台任务 | 通过 `/codex` 提交，任务进入持久化队列 |
-| 结果回传 | 完成后送回 WebChat 或已配对的微信私聊 |
-| 进度查询 | 查看任务状态、结果和回传状态 |
-| 进阶接入 | 支持延时执行、会话续接、本地 API 与 MCP |
+插件不单独调用模型写汇报，不修改角色提示词，不替 AstrBot 编排话术。后台消息交给 AstrBot 的正常事件流程，原有模型、人设、记忆、工具和回复规则继续由 AstrBot 管理。
 
-## 快速开始
+## 开始使用
 
-已验证环境为 **AstrBot 4.29.4、Python 3.12**。先在 AstrBot 所在环境安装并登录 Codex，确认同一运行账户能够启动 `codex app-server`。
-
-1. 在 AstrBot 插件管理中使用下方仓库地址安装，或下载 ZIP 后从文件安装。
-2. 创建运行数据目录 `data/plugin_data/astrbot_plugin_codex_bridge/`。
-3. 将 [配置示例](config.example.json) 复制为该目录中的 `config.json`，填写 `codex`、`cwd` 和 `webchat_owner`。
-4. 准备两个独立的令牌文件 `operator.token` 和 `callback.token`。
-5. 单独重载插件，在指定操作者的 WebChat 私聊中提交任务。
+1. 打开并登录 Codex App，至少保留一条本地聊天。
+2. 在 AstrBot 插件管理中安装本仓库，或导入发布 ZIP。
+3. 把你的微信/WebChat 账号设为 AstrBot 管理员，私聊机器人发送 `/codex_threads`。
 
 ```text
 https://github.com/1972124398/astrbot_plugin_codex_bridge
 ```
 
-<details>
-<summary><strong>配置文件与令牌怎么准备？</strong></summary>
+AstrBot 与 Codex 同机、同账户运行时通常不用填参数。首次明确使用桥接功能会绑定当前私聊作为事件接收会话；已有绑定保留，换目标用 `/codex_bind`。Docker 或异机部署使用附带的[宿主机代理](docs/DEPLOYMENT.md)。
 
-运行目录的结构如下。
+## 交给 AstrBot 使用
 
-```text
-data/plugin_data/astrbot_plugin_codex_bridge/
-├── config.json
-├── operator.token
-└── callback.token
-```
-
-将下面的命令运行两次，把两次结果分别保存到两个令牌文件中，每个文件只放一行令牌。
-
-```shell
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
-
-Windows 的 `codex` 字段填写可直接执行的 `codex.exe` 绝对路径。`cwd` 填写已存在的工作目录。首次安装若提示缺少配置或令牌文件，完成配置后再单独重载。
-
-后台任务按配置的沙箱执行，采用非交互审批策略。将操作者授权给可以使用本机 Codex 的可信账户。
-
-[完整配置参考](docs/CONFIGURATION.md) · [Codex CLI 官方文档](https://developers.openai.com/codex/cli/)
-
-</details>
-
-## 使用
+可以像平常聊天一样让 AstrBot：
 
 ```text
-/codex 请检查当前项目结构，并简要说明入口文件
-/codex_status
+看看 Codex 里哪些任务还在进行。
+继续“修复登录”那条聊天，让它补充测试。
+在“网站项目”里新建任务，检查部署方式。
+看看刚才那个任务做到哪里了。
+把那条聊天改名并置顶。
 ```
 
-| 命令 | 用途 |
+插件提供工具，接收 AstrBot 选定的操作和任务内容；支持现有聊天、新建聊天、项目任务、读取进度、继续、改名、归档、恢复、置顶和打开等操作。更完整的桌面能力通过运行时工具目录提供，不限于 AstrBot 创建的聊天。
+
+操作结果会带 `_bridge` 说明，原始资料仍可读取。插件不会因为收到一条进度就自行创建新任务或续发指令。
+
+## 手动命令
+
+命令用于明确操作或查看数据，返回操作回执；日常回复仍交给 AstrBot。
+
+| 命令 | 作用 |
 | --- | --- |
-| `/codex <任务说明>` | 提交任务，完成后自动回传 |
-| `/codex_status [任务编号]` | 查询最近任务或指定任务 |
-| `/codex_pair` | 在授权 WebChat 私聊生成微信配对码 |
+| `/codex_threads` | 查看聊天列表 |
+| `/codex_use 名称或序号` | 明确选择后续操作的聊天 |
+| `/codex 任务说明` | 提交任务；选过聊天就发到该聊天，否则新建 |
+| `/codex_new 任务说明` | 新建一项任务，不自动改选当前聊天 |
+| `/codex_new` | 明确清除当前聊天选择 |
+| `/codex_threads 名称或序号` | 读取聊天进度 |
+| `/codex_status [任务编号]` | 查看连接、任务原始结果和转交状态 |
+| `/codex_bind` | 设置后台事件接收会话 |
+| `/codex_app tools` | 查看完整桌面工具目录 |
 
-<details>
-<summary><strong>如何在微信私聊中使用？</strong></summary>
+聊天可按名称、名称片段或列表序号定位。只有明确选择聊天的操作会改变后续目标，新建和发送本身不会暗中切换目标。
 
-先接入 WeChat Native 适配器，在 `config.json` 中填写实际的 `wechat_platform_id`，然后单独重载插件。
+## 全局状态与回传
 
-在授权 WebChat 私聊中发送 `/codex_pair`，再于 15 分钟内，在目标微信私聊中发送返回的完整配对命令。成功后，该私聊即可使用 `/codex` 并接收结果。
+插件持续记录其他来源 Codex 聊天的公开进度、完成、失败和等待输入状态，并把这些资料作为后台事件交给 AstrBot。机器人自己提交的队列任务在结束后把结果交回原会话。
 
-配对会自动记录微信操作者和结果回传会话。WebChat 可以独立使用。
+首次扫描为旧闲置历史建立基线，不重新推送所有旧结果。同轮积压的旧进度会合并；暂时无法交接时保留记录并重试。
 
-[WeChat Native 适配器](https://github.com/neozhu/astrbot-plugin-wechat-native)
+`handed_off` 表示事件已进入 AstrBot，不代表用户端已经收到消息。是否发言、如何回复及实际发送由 AstrBot 处理。`/notify` 也是交回后台事件，不再绕过 AstrBot 直接给用户发消息。
 
-</details>
+## 环境与更新
 
-## 常见问题
+需要 Python 3.11+、AstrBot 4.29.4+ 和兼容的 Codex App。已验证 Windows Codex 26.1117.4957.0 的桌面接入。桌面接口随 App 版本变化，当前已验证版本未公开立即中断回合能力。
 
-<details>
-<summary>插件初始化失败，或命令没有响应</summary>
+旧配置、配对和任务数据保留。2.3 起不再使用旧版独立发言模块或话术缓存。默认连接桌面，也保留独立后台执行模式。
 
-检查运行数据目录中的配置和两个令牌文件。确认当前为私聊，WebChat 发送者 ID 与 `webchat_owner` 一致，或微信已完成配对。
+采用 [0BSD 许可证](LICENSE)，可自由使用、修改、分发和商用。
 
-</details>
+## 四个插件自然联动
 
-<details>
-<summary>无法启动 Codex，或任务执行超时</summary>
+可与 Codex Bridge、陪它玩、自娱自乐和短期共享情绪自动配合，共享心情与当前活动，游戏和见闻也能留下相处余韵。单独安装同样可用，配置页可开关联动。
 
-用运行 AstrBot 的同一账户验证 Codex 登录状态、可执行文件路径和工作目录，再查看 `timeout_seconds` 配置。需要交互确认的操作可能无法在后台完成。
-
-</details>
-
-<details>
-<summary>执行成功，但没有收到回传</summary>
-
-使用 `/codex_status <任务编号>` 查看回传状态，检查原会话的平台连接。桥接 API 固定监听 `127.0.0.1:6196`，重复加载实例时也需检查端口占用。
-
-</details>
-
-## 文档与反馈
-
-| 文档 | 内容 |
-| --- | --- |
-| [配置参考](docs/CONFIGURATION.md) | 配置字段、Windows 示例、令牌和运行目录 |
-| [MCP 与 API](docs/INTEGRATION.md) | 自然语言工具、延时任务、会话续接和通知 |
-| [更新记录](CHANGELOG.md) | 版本变化与发布内容 |
-
-反馈时请附上插件与 AstrBot 版本、系统、复现步骤和相关日志，并隐藏令牌及个人信息。
-
-[提交问题](https://github.com/1972124398/astrbot_plugin_codex_bridge/issues/new/choose) · [查看发布版本](https://github.com/1972124398/astrbot_plugin_codex_bridge/releases)
-
-## 相关插件
-
-| 插件 | 用途 |
-| --- | --- |
-| [微信原生表情转图片](https://github.com/1972124398/astrbot_plugin_wechat_sticker_receiver) | 将微信表情交给视觉模型理解 |
-| [短期共享情绪](https://github.com/1972124398/astrbot_plugin_short_term_mood) | 为 AI 增加跨对话共享的短期心境 |
-
-采用 [0BSD 许可证](LICENSE)，允许使用、修改、分发和商用，无需保留署名。
+查看[联动效果与配置](docs/LINKING.md)。

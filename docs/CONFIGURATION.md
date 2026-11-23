@@ -1,67 +1,57 @@
 # 配置参考
 
-[返回首页](../README.md) · [MCP、工具和本地 API](INTEGRATION.md) · [更新记录](../CHANGELOG.md)
+[首页](../README.md) · [部署](DEPLOYMENT.md) · [工具与 API](INTEGRATION.md)
 
-本插件在 AstrBot 数据目录中使用独立的 `data/plugin_data/astrbot_plugin_codex_bridge/config.json`。将仓库根目录的 `config.example.json` 复制到这里，再按运行环境修改。
+同机使用通常不需要修改配置。面板只显示自动汇报和可选宿主机连接，高级字段默认隐藏，原有配置值仍然生效。运行数据目录为 `data/plugin_data/astrbot_plugin_codex_bridge/`，自动创建目录、令牌和数据库。
 
-## 配置字段
-
-| 字段 | 用途 | 示例或说明 |
+| 字段 | 默认 | 说明 |
 | --- | --- | --- |
-| `codex` | Codex 可执行文件 | 绝对路径，Windows 使用可直接执行的 `codex.exe` |
-| `cwd` | 默认工作目录 | 已存在的绝对目录路径 |
-| `sandbox` | Codex 沙箱 | 示例为 `workspace-write`，按使用场景选择 Codex 支持的值 |
-| `timeout_seconds` | 单项任务执行超时 | 默认示例为 `1800` 秒 |
-| `webchat_owner` | 获准提交任务的 WebChat 用户 ID | 与 WebChat 消息的发送者 ID 一致 |
-| `wechat_platform_id` | WeChat Native 平台实例 ID | 使用微信时填写 AstrBot 中的实际平台实例 ID |
-| `wechat_operators` | 获准提交任务的微信用户 ID | 配对成功时自动追加 |
-| `notification_session` | 微信通知会话 | 配对成功时自动记录 |
-| `notification_mcp_server` | 可选的 MCP 服务名称 | 与 Codex 中配置的 MCP 名称一致，例如 `astrbot_codex_bridge` |
+| `backend` | `desktop` | `desktop` 控制真实 App；`app_server` 独立后台 |
+| `desktop_pipe` | 空 | 自动发现唯一 App Tools 通道；多实例时指定完整管道/socket 路径 |
+| `controller_thread_id` | 空 | 自动从本地元数据发现真实调用身份；也可指定一条现有本地聊天 UUID |
+| `codex_home` | 空 | 默认 CODEX_HOME 或 ~/.codex，通常无需填写 |
+| `desktop_url` | 空 | 代理地址，例如 http://host.docker.internal:6197 |
+| `desktop_token` | 空 | 代理令牌内容；填写 URL 时必填 |
+| `desktop_timeout_seconds` | 45 | 单次桌面调用等待时间 |
+| `webchat_owner` | 空 | 额外可信 WebChat 用户 ID；AstrBot 管理员私聊默认获准 |
+| `wechat_platform_id` | 空 | 额外微信配对使用的实际平台实例 ID |
+| `wechat_operators` | [] | 与平台实例共同验证的额外微信账号 |
+| `notification_session` | 空 | 首次授权使用自动绑定，可用 /codex_bind 更换 |
+| `monitor_enabled` | true | 全局监控开关，与执行后端独立 |
+| `monitor_interval_seconds` | 15 | 元数据扫描间隔，通常保持默认 |
+| `progress_interval_seconds` | 60 | 公开进度合并间隔，状态变化会尽快汇报 |
+| `bridge_port` | 6196 | 本地 API 端口，仅监听 127.0.0.1 |
+| `codex` | codex | 仅后台使用，Windows 建议真实 codex.exe 绝对路径 |
+| `cwd` | 空 | 后台必填，已存在的绝对工作目录；桌面忽略此默认值 |
+| `sandbox` | danger-full-access | 后台主机完整权限，也支持 workspace-write/read-only |
+| `timeout_seconds` | 1800 | 后台超时；桌面仅用作未匹配执行轮次的跟踪时限 |
+| `notification_mcp_server` | 空 | 可选通知 MCP 名称，供后台启动时使用 |
 
-`notification_mcp_server` 为可选字段。填写后，插件启动的 Codex App Server 会为该 MCP 服务设置工具审批配置，便于任务使用通知工具。具体效果还取决于 Codex 的配置与授权。
+桌面模式继承 App 的权限、模型和工具环境。`controller_thread_id` 只提供真实调用身份，不限制操作范围，也不会给身份聊天追加控制提示词；该聊天被删除时需要改配置或留空重载。独立后台使用 approvalPolicy=never。
 
-## Windows 示例
+监控分页发现所有可访问的 Codex 来源，包含归档与已连接主机。活动聊天每轮读取公开进度；闲置聊天只在元数据变化时读取。首次闲置历史只建立基线。离线主机和读取错误可在 /status 查看。未绑定私聊时报告仍可通过工具/API 查询，绑定前报告不自动补发。
 
-下面所有路径和用户 ID 都需要替换为自己的实际值。
+当前聊天按私聊分别保存在 `routing.json`，重载后保留；列表序号对应最近一次展示的列表。
 
-```json
-{
-  "codex": "C:/path/to/codex.exe",
-  "cwd": "D:/your-workspace",
-  "sandbox": "workspace-write",
-  "timeout_seconds": 1800,
-  "webchat_owner": "your-webchat-user-id",
-  "wechat_platform_id": "",
-  "wechat_operators": [],
-  "notification_session": ""
-}
+绑定和配对保存在 `routing.json`，绑定目标优先于面板和旧配置，配对账号与配置账号合并。撤销配对时停止插件，从 routing.json 及配置的 wechat_operators 中删除账号，再重载。AstrBot 管理员权限在 AstrBot 中撤销。
+
+```text
+operator.token   完整本地 API 权限
+callback.token   仅 /status、/notify
+jobs.sqlite      队列、桌面回执和结果发送状态
+reports.sqlite   全局进度基线、报告和发送队列
+routing.json     配对账号和绑定目标
 ```
 
-Linux 等环境可参考仓库中的 [通用配置示例](../config.example.json)。使用容器部署时，Codex 可执行文件和工作目录须在 AstrBot 容器内可访问。
+令牌不存在时自动生成，已有令牌保留；两个令牌相同或为空会拒绝启动。已交给 AstrBot 的全局报告保留 30 天，待发送与失败报告保留供排查。备份运行数据目录可保留队列、绑定和发送状态。
 
-## 令牌文件
+旧 `config.json` 同名字段覆盖面板。迁移时先把所需字段填入面板，再将旧文件改名备份。示例见 [config.example.json](../config.example.json)。修改 API 端口后，MCP 同步设置 ASTRBOT_CODEX_BRIDGE_PORT。
 
-同一运行数据目录还需放置两个不同的令牌文件。
+时间参数填写为零或负数时会回到默认值，不再因自定义范围阻止启动。延时任务省略时区时按运行主机的本地时间处理。
 
-| 文件 | 用途 |
-| --- | --- |
-| `operator.token` | 授权本地 API 管理任务与创建配对码 |
-| `callback.token` | 授权 MCP 或回传客户端读取状态、向已配对微信会话发送结果 |
 
-每个文件只保存一行独立的 ASCII 随机令牌。可以分别运行以下命令生成。
+后台事件进入 AstrBot 的正常流程，不单独配置模型、人设或话术。report_delivery 中 handed_off 只表示 AstrBot 已接收。旧版 speech 表可随备份保留，新版不再使用话术缓存。
 
-```shell
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
+## 拟人插件联动
 
-令牌保存在插件运行数据目录。分享配置时使用 `config.example.json` 中的占位内容。
-
-## 配置完成后的检查
-
-1. 单独重载插件，在日志中确认 `AstrBot Codex Bridge ready on 127.0.0.1:6196`。
-2. 从指定 WebChat 操作者的私聊提交一项简短任务。
-3. 使用 `/codex_status` 查看结果。如果需要微信回传，再按首页步骤配对。
-
-后台任务使用 `approvalPolicy=never`，需要交互确认的操作可能无法完成。插件通过配置的沙箱约束任务，使用时为操作者选择合适的工作目录与权限。
-
-[返回使用说明](../README.md) · [MCP 与 API](INTEGRATION.md)
+`interop_enabled` 默认开启，自动发现可用同伴；关闭后独立使用。`interop_gap_minutes` 默认 10 分钟，参考所有同伴最近主动开口的时间，0 表示不额外等待。前台只读取状态与排队，感受评估在后台完成。详见[四插件联动](LINKING.md)。
