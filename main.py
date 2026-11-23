@@ -18,9 +18,10 @@ from .desktop import DesktopClient, DesktopError
 from .control import ChatControl, status_text
 from .reports import GlobalMonitor, ReportStore
 from .relay import AstrBotRelay
-from .protocol import TASK_FRAME, bridge_result, original_prompt, forward_prompt
+from .protocol import task_frame, bridge_result, original_prompt, forward_prompt
 from .settings import load_settings, save_routing
 from .interop import CompanionLink, event_kind, notice_ignored
+from .task_context import prepare_task_context, restore_task_media
 
 TOOL_NAMES = (
     "w1_delegate_to_codex",
@@ -759,8 +760,6 @@ class CodexBridge(Star):
 
     @filter.on_llm_request()
     async def scope_tools(self, event, request):
-        if self.relay and self.relay.owns(event) and TASK_FRAME not in (request.system_prompt or ""):
-            request.system_prompt = (request.system_prompt or "") + "\n\n" + TASK_FRAME
         self.link.begin(event)
         self.link.inject(event, request)
         if request.func_tool:
@@ -783,12 +782,33 @@ class CodexBridge(Star):
         return {"tasks": [{"id": row["id"], "state": row["state"], "thread_id": row["thread_id"],
                            "summary": original_prompt(row["prompt"])[:200]} for row in rows]} if rows else {}
 
+    @filter.on_llm_request(priority=-110)
+    async def prepare_notice_context(self, event, request):
+        if self.relay and self.relay.owns(event):
+            prepare_task_context(request)
+            # Run after the mood plugin scopes its per-notice capabilities.
+            mood = self.link.peer("short_term_mood", event.unified_msg_origin)
+            mood_linked = mood is not None and event.get_extra("short_term_mood_skip") is not True
+            allow_refusal = False
+            can_decline = getattr(mood, "can_decline_notice", None)
+            if mood_linked and callable(can_decline):
+                try:
+                    allow_refusal = bool(can_decline(event))
+                except Exception as exc:
+                    self.logger.debug("Codex notice mood capability unavailable (%s).", type(exc).__name__)
+            if "<codex_task_source>" not in (request.system_prompt or ""):
+                request.system_prompt = (request.system_prompt or "") + "\n\n" + task_frame(
+                    mood_linked=mood_linked, allow_refusal=allow_refusal,
+                )
+
     @filter.on_llm_response()
     async def companion_response(self, event: AstrMessageEvent, response):
         self.link.end(event, response)
 
     @filter.on_agent_done()
     async def companion_done(self, event: AstrMessageEvent, run_context, response):
+        if self.relay and self.relay.owns(event):
+            restore_task_media(run_context)
         self.link.end(event)
         if event_kind(event) == "task_event" and not notice_ignored(event) and getattr(response, "completion_text", ""):
             self.link.sent(event.unified_msg_origin, "", kind="task_spoken")

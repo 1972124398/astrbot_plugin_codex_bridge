@@ -64,6 +64,30 @@ class ProtocolTests(unittest.TestCase):
 
 
 class RelayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_legacy_empty_progress_is_drained_without_a_model_event(self):
+        context = Mock()
+        factory = Mock()
+        relay = AstrBotRelay(context, factory)
+        self.assertTrue(await relay.publish("admin", {
+            "kind": "task_progress", "progress": {
+                "status": {"type": "active", "activeFlags": []},
+                "turn_status": "inProgress", "messages": [], "error": None,
+            },
+        }, "old-empty"))
+        factory.assert_not_called()
+        context.get_event_queue.assert_not_called()
+
+    async def test_empty_terminal_status_is_handed_off(self):
+        context = Mock()
+        context.get_event_queue.return_value = asyncio.Queue()
+        relay = AstrBotRelay(context, lambda *args: types.SimpleNamespace())
+        self.assertTrue(await relay.publish("admin", {
+            "kind": "task_progress", "progress": {
+                "turn_status": "completed", "messages": [],
+            },
+        }, "completed"))
+        self.assertEqual(context.get_event_queue.return_value.qsize(), 1)
+
     async def test_handoff_uses_astrbot_queue_without_model_or_direct_send(self):
         context = Mock()
         queue = asyncio.Queue()
@@ -105,5 +129,5 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
         )
         encoded = json.dumps(payload, ensure_ascii=False)
         self.assertIn("不是用户新发来的消息", encoded)
-        self.assertIn("由 AstrBot 决定", encoded)
+        self.assertIn("人格与拟人感优先", encoded)
         self.assertEqual(payload["kind"], "task_progress")

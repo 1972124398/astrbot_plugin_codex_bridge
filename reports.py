@@ -17,7 +17,8 @@ def progress_view(detail):
     messages = [
         item.get("text", "")
         for item in turn.get("items", [])
-        if item.get("type") == "agentMessage" and item.get("text")
+        if item.get("type") == "agentMessage"
+        and isinstance(item.get("text"), str) and item["text"].strip()
     ]
     return {
         "status": thread.get("status"),
@@ -40,6 +41,20 @@ def is_active(row):
         state == "active"
         or isinstance(state, dict)
         and state.get("type") in ("active", "systemError")
+    )
+
+
+def reportable_progress(view):
+    """A running status without public text is an observation, not a notice."""
+    status = view.get("status")
+    status_type = status.get("type") if isinstance(status, dict) else status
+    flags = status.get("activeFlags", []) if isinstance(status, dict) else []
+    return bool(
+        any(isinstance(text, str) and text.strip() for text in view.get("messages", []))
+        or view.get("error")
+        or view.get("turn_status") in ("completed", "failed", "interrupted")
+        or status_type == "systemError"
+        or any(flag in ("waitingOnUserInput", "waitingOnApproval") for flag in flags)
     )
 
 
@@ -91,16 +106,18 @@ class ReportStore:
         should_report = (
             not owned
             and changed
+            and reportable_progress(view)
             and (
                 (old is None and (is_active(row) or report_new))
                 or transition
-                or (old is not None and now - old["reported"] >= interval)
+                or (old is not None and (not old["reported"] or now - old["reported"] >= interval))
             )
         )
         reported = now if should_report else (old["reported"] if old else 0)
         # Keep an unreported fingerprint pending during throttling.
         saved_fingerprint = (
-            fingerprint if should_report or old is None or owned else old["fingerprint"]
+            fingerprint if should_report or old is None or owned or not reportable_progress(view)
+            else old["fingerprint"]
         )
         with self.db:
             self.db.execute(

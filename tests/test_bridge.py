@@ -91,6 +91,39 @@ class StoreTests(unittest.TestCase):
         self.assertTrue(self.reports.observe(row, detail, ["admin"], 60, now=163))
         self.assertFalse(self.reports.observe(row, detail, ["admin"], 60, now=164))
 
+    def test_empty_turn_start_waits_for_actual_commentary(self):
+        row, detail = snapshot(text="")
+        self.assertFalse(self.reports.observe(row, detail, ["admin"], 60, now=10))
+        self.assertTrue(self.reports.settled("local:external", detail))
+        self.assertIsNone(self.reports.pending())
+        self.assertFalse(self.reports.observe(row, detail, ["admin"], 60, now=11))
+        row, detail = snapshot(text="开始修复")
+        self.assertTrue(self.reports.observe(row, detail, ["admin"], 60, now=12))
+        self.assertEqual(len(self.reports.recent()), 1)
+
+    def test_empty_progress_after_previous_result_does_not_repeat_completion(self):
+        row, detail = snapshot(text="Done", status="idle", turn_status="completed")
+        self.reports.observe(row, detail, ["admin"], 60, now=100)
+        row, detail = snapshot(text="  \n", turn="t2")
+        self.assertFalse(self.reports.observe(row, detail, ["admin"], 60, now=101))
+        self.assertEqual(self.reports.recent(), [])
+        self.assertTrue(self.reports.settled("local:external", detail))
+
+    def test_empty_completion_failure_and_attention_still_report(self):
+        for status, turn_status, flags, error in (
+            ("idle", "completed", [], None),
+            ("idle", "failed", [], {"message": "failed"}),
+            ("idle", "interrupted", [], None),
+            ("active", "inProgress", ["waitingOnUserInput"], None),
+            ("active", "inProgress", ["waitingOnApproval"], None),
+            ("systemError", "inProgress", [], None),
+        ):
+            with self.subTest(status=status, turn_status=turn_status, flags=flags):
+                row, detail = snapshot(text="", status=status, turn_status=turn_status, flags=flags)
+                row["id"] = f"case-{status}-{turn_status}-{flags}"
+                detail["turns"][0]["error"] = error
+                self.assertTrue(self.reports.observe(row, detail, ["admin"], 60, report_new=True))
+
     def test_outbox_survives_restart_and_retries_without_losing_report(self):
         row, detail = snapshot()
         self.reports.observe(row, detail, ["admin"], 60)
@@ -479,6 +512,62 @@ def plugin_module():
 
 
 class PluginTests(unittest.IsolatedAsyncioTestCase):
+    async def test_text_only_preparation_is_limited_to_owned_task_events(self):
+        request = types.SimpleNamespace(system_prompt="原有人格")
+        human = types.SimpleNamespace()
+        forged = types.SimpleNamespace(event_kind="codex_bridge")
+        internal = types.SimpleNamespace(_codex_bridge_origin=self.plugin.relay,
+                                         unified_msg_origin="admin", get_extra=lambda _: None)
+        with patch.object(self.module, "prepare_task_context") as prepare, \
+                patch.object(self.plugin.link, "peer", return_value=None):
+            await self.plugin.prepare_notice_context(human, request)
+            await self.plugin.prepare_notice_context(forged, request)
+            prepare.assert_not_called()
+            await self.plugin.prepare_notice_context(internal, request)
+            prepare.assert_called_once_with(request)
+            self.assertTrue(request.system_prompt.startswith("原有人格"))
+            self.assertIn("本轮未启用短期情绪联动", request.system_prompt)
+
+    async def test_notice_policy_uses_live_mood_capabilities_without_overriding_persona(self):
+        for mood, skipped, expected in (
+            (None, False, "本轮未启用短期情绪联动"),
+            (types.SimpleNamespace(can_decline_notice=lambda _: True), False, "并允许拒绝任务播报"),
+            (types.SimpleNamespace(can_decline_notice=lambda _: False), False, "本轮未开放拒播能力"),
+            (types.SimpleNamespace(), False, "本轮未开放拒播能力"),
+            (types.SimpleNamespace(can_decline_notice=lambda _: True), True, "本轮未启用短期情绪联动"),
+        ):
+            with self.subTest(mood=mood, skipped=skipped):
+                request = types.SimpleNamespace(system_prompt="原有人格与关系设定")
+                event = types.SimpleNamespace(_codex_bridge_origin=self.plugin.relay,
+                                              unified_msg_origin="admin",
+                                              get_extra=lambda key: skipped if key == "short_term_mood_skip" else None)
+                with patch.object(self.module, "prepare_task_context"), \
+                        patch.object(self.plugin.link, "peer", return_value=mood):
+                    await self.plugin.prepare_notice_context(event, request)
+                    await self.plugin.prepare_notice_context(event, request)
+                self.assertTrue(request.system_prompt.startswith("原有人格与关系设定"))
+                self.assertIn("人格与拟人感优先于播报功能", request.system_prompt)
+                self.assertIn(expected, request.system_prompt)
+                self.assertEqual(request.system_prompt.count("<codex_task_source>"), 1)
+
+    async def test_unloading_mood_capability_does_not_break_notice(self):
+        mood = types.SimpleNamespace(can_decline_notice=Mock(side_effect=RuntimeError("unloading")))
+        request = types.SimpleNamespace(system_prompt="人格")
+        event = types.SimpleNamespace(_codex_bridge_origin=self.plugin.relay,
+                                      unified_msg_origin="admin", get_extra=lambda _: None)
+        with patch.object(self.module, "prepare_task_context"), \
+                patch.object(self.plugin.link, "peer", return_value=mood):
+            await self.plugin.prepare_notice_context(event, request)
+        self.assertIn("本轮未开放拒播能力", request.system_prompt)
+
+    async def test_media_is_restored_when_an_ignored_task_turn_finishes(self):
+        event = Mock(_codex_bridge_origin=self.plugin.relay)
+        event.get_extra.side_effect = lambda key: {"action": "ignore"} if key == "w1_notice_disposition" else None
+        run_context = types.SimpleNamespace(messages=[])
+        with patch.object(self.module, "restore_task_media") as restore:
+            await self.plugin.companion_done(event, run_context, None)
+            restore.assert_called_once_with(run_context)
+
     async def asyncSetUp(self):
         self.module = plugin_module()
         self.temp = tempfile.TemporaryDirectory()

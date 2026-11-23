@@ -66,4 +66,4 @@ Codex 回报使用 `w1_event` 标记，`type=task_event`、`is_user_message=fals
 
 ## 内部报告也可以先不理
 
-Codex 发给 AstrBot 的是内部报告，用户尚未见过原文。是否转述、怎样开口，由 AstrBot 的主模型结合心情决定。静默放下时 `w1_notice_disposition.action=ignore`，各插件不把它记为已发出的聊天。任务结果仍保留。查看[内部收件与情绪回应](https://github.com/1972124398/astrbot_plugin_codex_bridge/blob/main/docs/MESSAGE_FLOW.md)。
+Codex 发给 AstrBot 的是内部报告，用户尚未见过原文。人格与拟人感优先，正常情境下像平常的自己一样分享任务变化；短期情绪可以改变语气，甚至拒绝播报。是否转述、怎样开口，由 AstrBot 的主模型结合人格、关系与心情决定。静默放下时 `w1_notice_disposition.action=ignore`，各插件不把它记为已发出的聊天。任务结果仍保留。查看[内部收件与情绪回应](https://github.com/1972124398/astrbot_plugin_codex_bridge/blob/main/docs/MESSAGE_FLOW.md)。

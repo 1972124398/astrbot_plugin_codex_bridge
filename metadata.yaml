@@ -1,5 +1,5 @@
 name: astrbot_plugin_codex_bridge
-version: 2.6.0
+version: 2.6.2
 author: W1
 display_name: AstrBot Codex Bridge
 short_desc: 连接 AstrBot 与 Codex，转交任务、状态和结果。

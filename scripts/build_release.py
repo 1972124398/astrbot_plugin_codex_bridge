@@ -16,6 +16,7 @@ FILES = [
     "protocol.py",
     "settings.py",
     "reports.py",
+    "task_context.py",
     "host_agent.py",
     "codex_mcp.py",
     "_conf_schema.json",

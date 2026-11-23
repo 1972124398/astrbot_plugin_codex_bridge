@@ -3,9 +3,11 @@
 try:
     from .protocol import event_payload, render_event
     from .interop import notice_ignored
+    from .reports import reportable_progress
 except ImportError:
     from protocol import event_payload, render_event
     from interop import notice_ignored
+    from reports import reportable_progress
 
 
 def quiet_notice_tool_message(message):
@@ -67,6 +69,10 @@ class AstrBotRelay:
 
     async def publish(self, session, facts, event_id):
         try:
+            # Also drain empty progress already queued by an older version.
+            if facts.get("kind") == "task_progress" and not reportable_progress(facts.get("progress") or {}):
+                self.last_error = None
+                return True
             payload = event_payload(event_id, facts)
             event = self.factory(self.context, session, payload)
             event._codex_bridge_origin = self

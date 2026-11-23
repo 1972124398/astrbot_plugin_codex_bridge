@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -r requirements.txt ruff
-      - run: python -m compileall -q main.py bridge.py desktop.py control.py relay.py protocol.py settings.py reports.py host_agent.py codex_mcp.py scripts tests
+      - run: python -m compileall -q main.py bridge.py desktop.py control.py relay.py protocol.py settings.py reports.py task_context.py host_agent.py codex_mcp.py scripts tests
       - run: ruff check --select E9,F . --exclude work
       - run: python -m json.tool config.example.json
       - run: python -m json.tool _conf_schema.json
