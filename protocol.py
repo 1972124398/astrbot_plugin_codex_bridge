@@ -4,6 +4,7 @@ import json
 
 FORWARD_HEADER = "【AstrBot 转交任务】\n"
 FORWARD_BODY = "任务正文（JSON）：\n"
+LEISURE_HEADER = "【自娱自乐主动小作品】\n"
 BRIDGE_NOTE = {
     "source": "codex",
     "recipient": "astrbot",
@@ -49,8 +50,10 @@ def forward_prompt(text):
         return text
     return (
         FORWARD_HEADER
-        + "这是 AstrBot 代表用户转交的消息，可能是用户原话，也可能是 AstrBot 根据用户意图整理的任务。"
-        "你负责执行并把进度、结果和需要确认的事项交回 AstrBot；"
+        + ("这是 AstrBot 在管理员启用的自娱自乐范围内主动想到的小作品，不是用户刚刚提出的要求。"
+           if text.startswith(LEISURE_HEADER) else
+           "这是 AstrBot 代表用户转交的消息，可能是用户原话，也可能是 AstrBot 根据用户意图整理的任务。")
+        + "你负责执行并把进度、结果和需要确认的事项交回 AstrBot；"
         "后续操作和面向用户的表达由 AstrBot 决定。桥接层保留下面的任务正文。\n"
         + FORWARD_BODY
         + json.dumps({"source": "AstrBot", "message": text}, ensure_ascii=False)

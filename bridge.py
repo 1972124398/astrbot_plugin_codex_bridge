@@ -40,6 +40,8 @@ class JobStore:
                 self.db.execute("ALTER TABLE jobs ADD COLUMN dispatched_at REAL")
             if "target_json" not in columns:
                 self.db.execute("ALTER TABLE jobs ADD COLUMN target_json TEXT")
+            if "source" not in columns:
+                self.db.execute("ALTER TABLE jobs ADD COLUMN source TEXT NOT NULL DEFAULT 'user'")
             if "owned" not in columns:
                 self.db.execute(
                     "ALTER TABLE jobs ADD COLUMN owned INTEGER NOT NULL DEFAULT 0"
@@ -60,6 +62,9 @@ class JobStore:
                 result='AstrBot 在任务执行期间停止，执行结果未确认。'
                 WHERE state='running'""")
             self.db.execute(
+                "UPDATE jobs SET delivery='unconfirmed' WHERE source='self_amusement' AND delivery='sending'"
+            )
+            self.db.execute(
                 "UPDATE jobs SET delivery='pending' WHERE delivery='sending'"
             )
 
@@ -73,12 +78,13 @@ class JobStore:
         *,
         host_id="local",
         target=None,
+        source="user",
     ):
         job_id = uuid.uuid4().hex[:12]
         with self.db:
             self.db.execute(
-                """INSERT INTO jobs(id,prompt,cwd,thread_id,run_at,state,created,reply_to,delivery,owned,host_id,target_json)
-                VALUES(?,?,?,?,?,'queued',?,?,?,?,?,?)""",
+                """INSERT INTO jobs(id,prompt,cwd,thread_id,run_at,state,created,reply_to,delivery,owned,host_id,target_json,source)
+                VALUES(?,?,?,?,?,'queued',?,?,?,?,?,?,?)""",
                 (
                     job_id,
                     prompt,
@@ -91,6 +97,7 @@ class JobStore:
                     int(thread_id is None),
                     host_id,
                     json.dumps(target) if target else None,
+                    source,
                 ),
             )
         return job_id
@@ -100,6 +107,7 @@ class JobStore:
             row = self.db.execute(
                 """SELECT * FROM jobs
                 WHERE delivery='pending' AND state NOT IN ('queued','running','dispatched')
+                AND source!='self_amusement'
                 AND next_delivery<=? ORDER BY created LIMIT 1""",
                 (time.time(),),
             ).fetchone()

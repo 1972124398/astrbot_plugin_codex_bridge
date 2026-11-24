@@ -512,6 +512,96 @@ def plugin_module():
 
 
 class PluginTests(unittest.IsolatedAsyncioTestCase):
+    def hobby_peer(self):
+        self.plugin.link.config = self.plugin.settings
+        self.plugin.worker = types.SimpleNamespace(done=lambda: False)
+        self.plugin.wake = asyncio.Event()
+        peer = types.SimpleNamespace(
+            config={"activities": ["codex"]}, origins=lambda: [self.event.unified_msg_origin],
+            link=self.plugin.link,
+        )
+        self.plugin.context.get_registered_star.return_value = types.SimpleNamespace(
+            activated=True, star_cls=peer, plugin_id="astrbot_plugin_self_amusement")
+        self.plugin.context.get_config.return_value = {"plugin_set": ["*"]}
+        return peer
+
+    def start_hobby(self):
+        token = self.plugin.link.claim_idle()
+        return self.plugin.start_leisure_from_companion(
+            self.event.unified_msg_origin, "做一个猫猫计时器", {"persona": "自然的朋友"}, token)
+
+    async def test_leisure_jobs_use_new_isolated_target_and_distinct_provenance(self):
+        self.hobby_peer()
+        self.plugin.settings["chat_sessions"] = {self.event.unified_msg_origin: {"id": "human-chat"}}
+        receipt = self.start_hobby()
+        job = self.plugin.store.get(receipt["id"])
+        self.assertEqual(job["source"], "self_amusement")
+        self.assertIsNone(job["thread_id"])
+        self.assertEqual(json.loads(job["target_json"])["type"], "projectless")
+        self.assertEqual(job["reply_to"], self.event.unified_msg_origin)
+        self.assertIn("不是用户刚刚提出的要求", forward_prompt(job["prompt"]))
+        self.assertEqual(self.plugin.settings["chat_sessions"][self.event.unified_msg_origin]["id"], "human-chat")
+
+    async def test_leisure_cooldown_and_results_survive_database_reopen(self):
+        self.hobby_peer()
+        receipt = self.start_hobby()
+        self.plugin.store.finish(receipt["id"], "completed", "真实成果路径 cat.html")
+        self.assertIsNone(self.plugin.store.next_reply())
+        self.plugin.store.db.close()
+        self.plugin.store = JobStore(self.plugin.data_dir)
+        state = self.plugin.companion_snapshot(self.event.unified_msg_origin)
+        self.assertEqual(state["leisure_result"]["result"], "真实成果路径 cat.html")
+        self.assertFalse(state["can_start_leisure"])
+        self.assertNotIn("leisure_result", self.plugin.companion_snapshot("other-session"))
+        self.plugin.finish_leisure_from_companion("other-session", receipt["id"], "sent")
+        self.assertEqual(self.plugin.store.get(receipt["id"])["delivery"], "pending")
+        self.plugin.finish_leisure_from_companion(self.event.unified_msg_origin, receipt["id"], "sent")
+        self.assertNotIn("leisure_result", self.plugin.companion_snapshot(self.event.unified_msg_origin))
+        self.assertFalse(self.plugin.leisure_available(self.event.unified_msg_origin))
+        self.plugin.settings["leisure_cooldown_minutes"] = 0
+        self.assertTrue(self.plugin.leisure_available(self.event.unified_msg_origin))
+        self.plugin.settings["leisure_daily_limit"] = 1
+        self.assertFalse(self.plugin.leisure_available(self.event.unified_msg_origin))
+
+    async def test_normal_work_disabling_targets_and_invalidated_idle_prevent_hobby(self):
+        peer = self.hobby_peer()
+        origin = self.event.unified_msg_origin
+        manual = self.plugin.enqueue({"prompt": "用户工作"}, reply_to=origin)
+        self.assertFalse(self.plugin.leisure_available(origin))
+        self.plugin.store.finish(manual["id"], "completed", "完成")
+        self.assertIsNotNone(self.plugin.store.next_reply())
+        self.plugin.settings["leisure_enabled"] = False
+        self.assertFalse(self.plugin.leisure_available(origin))
+        self.plugin.settings["leisure_enabled"] = True
+        self.assertFalse(self.plugin.leisure_available("outside-targets"))
+        peer.config["activities"] = ["chat"]
+        self.assertFalse(self.plugin.leisure_available(origin))
+        peer.config["activities"] = ["codex"]
+        token = self.plugin.link.claim_idle()
+        self.plugin.link.human(origin)
+        self.assertIsNone(self.plugin.start_leisure_from_companion(origin, "小东西", {}, token))
+
+    async def test_app_server_hobby_uses_its_own_directory(self):
+        self.hobby_peer()
+        self.plugin.settings.update(backend="app_server", cwd=str(self.plugin.data_dir))
+        receipt = self.start_hobby()
+        job = self.plugin.store.get(receipt["id"])
+        self.assertEqual(Path(job["cwd"]).parent, self.plugin.data_dir / "leisure")
+        self.assertTrue(Path(job["cwd"]).is_dir())
+        self.assertIsNone(job["thread_id"])
+
+    async def test_hobby_delivery_reserved_before_crash_is_not_replayed(self):
+        self.hobby_peer()
+        receipt = self.start_hobby()
+        self.plugin.store.finish(receipt["id"], "completed", "小作品")
+        origin = self.event.unified_msg_origin
+        self.assertTrue(self.plugin.finish_leisure_from_companion(origin, receipt["id"], "sending"))
+        self.assertFalse(self.plugin.finish_leisure_from_companion(origin, receipt["id"], "sending"))
+        self.plugin.store.db.close()
+        self.plugin.store = JobStore(self.plugin.data_dir)
+        self.assertEqual(self.plugin.store.get(receipt["id"])["delivery"], "unconfirmed")
+        self.assertNotIn("leisure_result", self.plugin.companion_snapshot(origin))
+
     async def test_text_only_preparation_is_limited_to_owned_task_events(self):
         request = types.SimpleNamespace(system_prompt="原有人格")
         human = types.SimpleNamespace()

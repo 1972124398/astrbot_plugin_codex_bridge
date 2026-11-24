@@ -27,6 +27,9 @@ DEFAULTS = {
     "bridge_port": 6196,
     "interop_enabled": True,
     "interop_gap_minutes": 10,
+    "leisure_enabled": True,
+    "leisure_cooldown_minutes": 360,
+    "leisure_daily_limit": 2,
 }
 
 

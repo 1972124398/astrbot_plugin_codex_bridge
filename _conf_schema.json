@@ -148,6 +148,26 @@
     "hint": "默认 6196，仅监听 127.0.0.1。",
     "invisible": true
   },
+  "leisure_enabled": {
+    "description": "允许自娱自乐借 Codex 做点小东西",
+    "type": "bool",
+    "default": true,
+    "hint": "仅供已安装并启用的自娱自乐插件，在管理员选定的活动与会话内主动开工。独立目录和新聊天，不接管手动选中的项目；真实成果由自娱自乐按人设和日常节奏分享。"
+  },
+  "leisure_cooldown_minutes": {
+    "description": "自娱自乐两次 Codex 开工至少间隔几分钟",
+    "type": "int",
+    "default": 360,
+    "slider": {"min": 0, "max": 10080, "step": 30},
+    "hint": "所有会话合计，默认 6 小时。排队、运行中的任何任务或尚未分享的自娱成果也会阻止再次开工，重启后仍记得。"
+  },
+  "leisure_daily_limit": {
+    "description": "每天最多主动用 Codex 开工几次",
+    "type": "int",
+    "default": 2,
+    "slider": {"min": 0, "max": 20, "step": 1},
+    "hint": "所有会话合计，按 AstrBot 主机日期统计；失败也计入。0 关闭新开工。"
+  },
   "interop_enabled": {
     "description": "与其他拟人插件自然联动",
     "type": "bool",
