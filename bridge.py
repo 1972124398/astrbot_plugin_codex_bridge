@@ -135,6 +135,18 @@ class JobStore:
         row = self.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
         return dict(row) if row else None
 
+    def clear_session_results(self, origin):
+        with self.db:
+            self.db.execute(
+                "INSERT OR IGNORE INTO owned_threads SELECT thread_id FROM jobs "
+                "WHERE reply_to=? AND owned=1 AND thread_id IS NOT NULL",
+                (origin,),
+            )
+            self.db.execute(
+                "DELETE FROM jobs WHERE reply_to=? AND state NOT IN ('queued','running','dispatched')",
+                (origin,),
+            )
+
     def recent(self):
         return [
             dict(row)

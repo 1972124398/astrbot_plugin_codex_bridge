@@ -1,5 +1,9 @@
 # 更新记录
 
+## 2.7.1
+
+- 支持从认知面板清理指定 AstrBot 会话已结束的本地任务记录和播报投递。
+
 [返回首页](README.md) · [发布版本](https://github.com/1972124398/astrbot_plugin_codex_bridge/releases)
 
 ## 2.7.0

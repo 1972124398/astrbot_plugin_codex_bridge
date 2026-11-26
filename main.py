@@ -65,6 +65,7 @@ class CodexBridge(Star):
         self.reports = None
         self.desktop = None
         self.relay = None
+        self.delivering_report_to = None
 
     async def initialize(self):
         data_dir = Path(get_astrbot_plugin_data_path()) / PLUGIN_NAME
@@ -527,6 +528,7 @@ class CodexBridge(Star):
                     if self.reports.still_pending(
                         delivery["report_id"], delivery["session"]
                     ):
+                        self.delivering_report_to = delivery["session"]
                         success = await self.relay.publish(
                             delivery["session"],
                             json.loads(delivery["payload"]),
@@ -536,6 +538,8 @@ class CodexBridge(Star):
                     self.logger.warning(
                         "Codex report handoff failed (%s).", type(exc).__name__
                     )
+                finally:
+                    self.delivering_report_to = None
                 self.reports.delivered(
                     delivery["report_id"], delivery["session"], bool(success)
                 )
@@ -854,6 +858,17 @@ class CodexBridge(Star):
         if ready:
             result["leisure_result"] = dict(ready)
         return result
+
+    async def companion_clear(self, origin, *, persona):
+        if not self.store or not self.reports:
+            return "unavailable"
+        if self.delivering_report_to == origin or self.store.db.execute(
+            "SELECT 1 FROM jobs WHERE reply_to=? AND delivery='sending'", (origin,)
+        ).fetchone():
+            return "busy"
+        self.store.clear_session_results(origin)
+        self.reports.clear_session_deliveries(origin)
+        return "cleared"
 
     @filter.on_llm_request(priority=-110)
     async def prepare_notice_context(self, event, request):

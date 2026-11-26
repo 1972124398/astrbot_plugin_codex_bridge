@@ -249,6 +249,15 @@ class ReportStore:
             )
         }
 
+    def clear_session_deliveries(self, origin):
+        with self.db:
+            self.db.execute(
+                "DELETE FROM reports WHERE id IN (SELECT report_id FROM deliveries WHERE session=?) "
+                "AND id NOT IN (SELECT report_id FROM deliveries WHERE session!=?)",
+                (origin, origin),
+            )
+            self.db.execute("DELETE FROM deliveries WHERE session=?", (origin,))
+
     def prune(self):
         # Pending and failed deliveries stay available for troubleshooting.
         with self.db:

@@ -59,12 +59,35 @@ def snapshot(
 class StoreTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name)
         self.reports = ReportStore(self.path)
 
     def tearDown(self):
         self.reports.db.close()
-        self.temp.cleanup()
+
+    def test_session_cleanup_leaves_shared_reports_and_active_jobs_available(self):
+        jobs = JobStore(self.path)
+        self.addCleanup(jobs.db.close)
+        finished = jobs.add("finished", self.path, None, 0, reply_to="a")
+        jobs.dispatch(finished, "owned-thread")
+        jobs.finish(finished, "completed", "result")
+        active = jobs.add("active", self.path, None, 0, reply_to="a")
+        other = jobs.add("other", self.path, None, 0, reply_to="b")
+        jobs.finish(other, "completed", "other result")
+        jobs.clear_session_results("a")
+        self.assertIsNone(jobs.get(finished))
+        self.assertIsNotNone(jobs.get(active))
+        self.assertIsNotNone(jobs.get(other))
+        self.assertIn("owned-thread", jobs.owned_threads())
+
+        notice = self.reports.add_notice("a", "session-only report")
+        row, detail = snapshot()
+        self.reports.observe(row, detail, ["a", "b"], 60)
+        self.reports.clear_session_deliveries("a")
+        self.assertNotIn(notice, [report["id"] for report in self.reports.recent()])
+        self.assertEqual(self.reports.pending()["session"], "b")
+        self.assertTrue(self.reports.settled("local:external", detail))
 
     def test_global_history_is_seeded_and_external_active_is_reported(self):
         row, detail = snapshot(status="idle", turn_status="completed")
