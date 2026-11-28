@@ -17,7 +17,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from bridge import CodexClient, JobStore
 from desktop import DesktopClient, DesktopError, discover_thread, unwrap_tool
 from host_agent import create_app
-from reports import GlobalMonitor, ReportStore
+from reports import GlobalMonitor, ReportStore, digest, progress_view
 from settings import DEFAULTS, load_settings, save_routing
 from control import ChatControl
 from relay import AstrBotRelay
@@ -113,6 +113,31 @@ class StoreTests(unittest.TestCase):
         row, detail = snapshot(text="Done", status="idle", turn_status="completed")
         self.assertTrue(self.reports.observe(row, detail, ["admin"], 60, now=163))
         self.assertFalse(self.reports.observe(row, detail, ["admin"], 60, now=164))
+
+    def test_inactive_status_changes_do_not_repeat_completion_after_upgrade(self):
+        identity = "local:external"
+        _, detail = snapshot(text="Done", status="idle", turn_status="completed")
+        legacy = progress_view(detail)
+        with self.reports.db:
+            self.reports.db.execute(
+                "INSERT INTO observations VALUES(?,?,?,?,?)",
+                (identity, digest(legacy), json.dumps([legacy["status"], "t1", "completed", None]), 100, 100),
+            )
+        self.reports.db.close()
+        self.reports = ReportStore(self.path)
+
+        for now, status in ((170, "notLoaded"), (240, "idle")):
+            with self.subTest(status=status):
+                row, detail = snapshot(text="Done", status=status, turn_status="completed")
+                self.assertFalse(self.reports.observe(row, detail, ["admin"], 60, now=now))
+                self.assertTrue(self.reports.settled(identity, detail))
+        self.assertEqual(self.reports.recent(), [])
+
+        row, detail = snapshot(text="Updated result", status="notLoaded", turn_status="completed")
+        self.assertTrue(self.reports.observe(row, detail, ["admin"], 60, now=241))
+        row, detail = snapshot(text="Updated result", status="idle", turn_status="completed", turn="t2")
+        self.assertTrue(self.reports.observe(row, detail, ["admin"], 60, now=242))
+        self.assertEqual(len(self.reports.recent()), 2)
 
     def test_empty_turn_start_waits_for_actual_commentary(self):
         row, detail = snapshot(text="")

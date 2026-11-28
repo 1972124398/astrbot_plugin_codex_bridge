@@ -35,6 +35,14 @@ def digest(view):
     ).hexdigest()
 
 
+def observation_status(status):
+    # Desktop can load or unload an inactive thread without changing its turn.
+    status_type = status.get("type") if isinstance(status, dict) else status
+    if status_type in ("idle", "notLoaded"):
+        return "idle"
+    return status
+
+
 def is_active(row):
     state = row.get("status")
     return (
@@ -92,16 +100,22 @@ class ReportStore:
         now = time.time() if now is None else now
         identity = f"{row.get('hostId', 'local')}:{row['id']}"
         view = progress_view(detail)
-        fingerprint = digest(view)
-        state = json.dumps(
-            [view["status"], view["turn_id"], view["turn_status"], view["error"]],
-            sort_keys=True,
-        )
+        status = observation_status(view["status"])
+        fingerprint = digest(dict(view, status=status))
+        state = [status, view["turn_id"], view["turn_status"], view["error"]]
         old = self.db.execute(
             "SELECT * FROM observations WHERE identity=?", (identity,)
         ).fetchone()
-        changed = old is None or old["fingerprint"] != fingerprint
-        transition = old is not None and state != old["status"]
+        changed = True
+        transition = False
+        if old is not None:
+            old_status, *old_turn = json.loads(old["status"])
+            old_state = [observation_status(old_status), *old_turn]
+            transition = state != old_state
+            changed = old["fingerprint"] != fingerprint
+            if changed and not transition and old_status != status:
+                # Older releases hashed the raw Desktop status in saved observations.
+                changed = old["fingerprint"] != digest(dict(view, status=old_status))
         # Seed old idle history silently. Active tasks are reported on first sight.
         should_report = (
             not owned
@@ -114,17 +128,19 @@ class ReportStore:
             )
         )
         reported = now if should_report else (old["reported"] if old else 0)
-        # Keep an unreported fingerprint pending during throttling.
-        saved_fingerprint = (
-            fingerprint if should_report or old is None or owned or not reportable_progress(view)
-            else old["fingerprint"]
+        # Keep the old fingerprint and its status together while throttling.
+        throttled = (
+            old is not None and changed and not should_report
+            and not owned and reportable_progress(view)
         )
+        saved_fingerprint = old["fingerprint"] if throttled else fingerprint
+        saved_state = old["status"] if throttled else json.dumps(state, sort_keys=True)
         with self.db:
             self.db.execute(
                 """INSERT INTO observations VALUES(?,?,?,?,?)
                 ON CONFLICT(identity) DO UPDATE SET fingerprint=excluded.fingerprint,
                 status=excluded.status,reported=excluded.reported,updated=excluded.updated""",
-                (identity, saved_fingerprint, state, reported, now),
+                (identity, saved_fingerprint, saved_state, reported, now),
             )
             if should_report:
                 title = (
@@ -216,7 +232,10 @@ class ReportStore:
         row = self.db.execute(
             "SELECT fingerprint FROM observations WHERE identity=?", (identity,)
         ).fetchone()
-        return row is not None and row[0] == digest(progress_view(detail))
+        view = progress_view(detail)
+        return row is not None and row[0] == digest(
+            dict(view, status=observation_status(view["status"]))
+        )
 
     def delivered(self, report_id, session, success):
         with self.db:
